@@ -11,5 +11,5 @@ const firebaseConfig = {
 };
 
 const app = initializeApp(firebaseConfig);
-// This export allows the rest of your app to 'see' the database
+// MUST HAVE THIS LINE TO PREVENT RENDER ERROR
 export const db = getFirestore(app);
