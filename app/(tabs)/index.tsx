@@ -1,8 +1,15 @@
 import { addDoc, collection, onSnapshot, orderBy, query } from 'firebase/firestore';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Modal, SafeAreaView, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Alert, Modal, SafeAreaView, StyleSheet, Switch,
+  Text, TextInput, TouchableOpacity, View
+} from 'react-native';
 import { Calendar } from 'react-native-calendars';
+// This path jumps out of (tabs) and app folders to find the config in the root
 import { db } from '../../firebaseConfig';
+
+const TARGET_HOURS = 100;
 
 export default function HoursScreen() {
   const [isDark, setIsDark] = useState(true);
@@ -10,6 +17,7 @@ export default function HoursScreen() {
   const [modalVisible, setModalVisible] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   
+  // States for the manual entry system
   const [startH, setStartH] = useState('');
   const [startM, setStartM] = useState('00');
   const [startP, setStartP] = useState('AM');
@@ -20,8 +28,8 @@ export default function HoursScreen() {
   const [workLogs, setWorkLogs] = useState<any>({});
   const [monthlyTotal, setMonthlyTotal] = useState(0);
 
+  // 1. Load History (Matching your lowercase 'worklogs' name)
   useEffect(() => {
-    // UPDATED: Changed to 'worklogs' to match your Firebase Console exactly
     const q = query(collection(db, "worklogs"), orderBy("date"));
     return onSnapshot(q, (snapshot) => {
       let total = 0;
@@ -33,11 +41,14 @@ export default function HoursScreen() {
       });
       setWorkLogs(logs);
       setMonthlyTotal(total);
+    }, (error) => {
+      console.error("Firebase connection failed:", error.message);
     });
   }, []);
 
+  // 2. Updated Save Function
   const saveShift = async () => {
-    if (!startH || !endH) return Alert.alert("Error", "Please enter hours.");
+    if (!startH || !endH) return Alert.alert("Wait!", "Enter hours first!");
 
     const to24 = (h: string, m: string, p: string) => {
       let hour = parseInt(h);
@@ -54,7 +65,7 @@ export default function HoursScreen() {
 
     setIsSaving(true);
     try {
-      // UPDATED: Changed to 'worklogs'
+      // MATCHED NAME: changed to 'worklogs' to match your Firebase Console
       await addDoc(collection(db, "worklogs"), {
         date: selectedDate,
         hours: parseFloat(diff.toFixed(2)),
@@ -62,10 +73,11 @@ export default function HoursScreen() {
       });
       setModalVisible(false);
       setIsSaving(false);
-      Alert.alert("Success! 🎉", `Saved to your worklogs.`);
+      setStartH(''); setEndH('');
+      Alert.alert("Success! 🎉", `Shift saved to your worklogs.`);
     } catch (e: any) {
       setIsSaving(false);
-      Alert.alert("Save Failed", "Firebase blocked the save. Check your Rules.");
+      Alert.alert("Firebase Error", "Could not save. Check your database rules.");
     }
   };
 
@@ -77,35 +89,52 @@ export default function HoursScreen() {
         <Text style={styles.title}>Hours Tracker</Text>
         <Switch value={isDark} onValueChange={setIsDark} />
       </View>
+
       <Calendar 
         onDayPress={(day: any) => { setSelectedDate(day.dateString); setModalVisible(true); }}
         markedDates={{...workLogs, [selectedDate]: {selected: true, selectedColor: '#3498db'}}}
-        theme={{ calendarBackground: isDark ? '#1e272e' : '#fff', dayTextColor: isDark ? '#fff' : '#000', monthTextColor: isDark ? '#fff' : '#000' }}
+        theme={{ 
+          calendarBackground: isDark ? '#1e272e' : '#fff', 
+          dayTextColor: isDark ? '#fff' : '#000', 
+          monthTextColor: isDark ? '#fff' : '#000',
+          todayTextColor: '#3498db'
+        }}
       />
-      <View style={{padding: 20}}><Text style={styles.statBox}>Total: {monthlyTotal.toFixed(1)} / 100 hrs</Text></View>
+
+      <View style={{padding: 20}}>
+        <Text style={styles.statBox}>Total: {monthlyTotal.toFixed(1)} / {TARGET_HOURS} hrs</Text>
+      </View>
       
       <Modal visible={modalVisible} animationType="fade" transparent={true}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>{selectedDate}</Text>
+            
+            <Text style={styles.label}>Start</Text>
             <View style={styles.row}>
-              <TextInput style={styles.input} placeholder="12" value={startH} onChangeText={setStartH} keyboardType="numeric" maxLength={2} />
+              <TextInput style={styles.input} placeholder="12" placeholderTextColor="#999" value={startH} onChangeText={setStartH} keyboardType="numeric" maxLength={2} />
               <Text style={styles.colon}>:</Text>
-              <TextInput style={styles.input} placeholder="00" value={startM} onChangeText={setStartM} keyboardType="numeric" maxLength={2} />
+              <TextInput style={styles.input} placeholder="00" placeholderTextColor="#999" value={startM} onChangeText={setStartM} keyboardType="numeric" maxLength={2} />
               <TouchableOpacity style={[styles.pBtn, startP === 'AM' && styles.pActive]} onPress={() => setStartP('AM')}><Text style={styles.pText}>AM</Text></TouchableOpacity>
               <TouchableOpacity style={[styles.pBtn, startP === 'PM' && styles.pActive]} onPress={() => setStartP('PM')}><Text style={styles.pText}>PM</Text></TouchableOpacity>
             </View>
+
+            <Text style={styles.label}>End</Text>
             <View style={styles.row}>
-              <TextInput style={styles.input} placeholder="12" value={endH} onChangeText={setEndH} keyboardType="numeric" maxLength={2} />
+              <TextInput style={styles.input} placeholder="12" placeholderTextColor="#999" value={endH} onChangeText={setEndH} keyboardType="numeric" maxLength={2} />
               <Text style={styles.colon}>:</Text>
-              <TextInput style={styles.input} placeholder="00" value={endM} onChangeText={setEndM} keyboardType="numeric" maxLength={2} />
+              <TextInput style={styles.input} placeholder="00" placeholderTextColor="#999" value={endM} onChangeText={setEndM} keyboardType="numeric" maxLength={2} />
               <TouchableOpacity style={[styles.pBtn, endP === 'AM' && styles.pActive]} onPress={() => setEndP('AM')}><Text style={styles.pText}>AM</Text></TouchableOpacity>
               <TouchableOpacity style={[styles.pBtn, endP === 'PM' && styles.pActive]} onPress={() => setEndP('PM')}><Text style={styles.pText}>PM</Text></TouchableOpacity>
             </View>
+
             <TouchableOpacity style={styles.saveBtn} onPress={saveShift} disabled={isSaving}>
               {isSaving ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveBtnText}>Save Shift</Text>}
             </TouchableOpacity>
-            <TouchableOpacity onPress={() => setModalVisible(false)}><Text style={{color: '#ff4757', textAlign: 'center', marginTop: 20}}>Cancel</Text></TouchableOpacity>
+            
+            <TouchableOpacity onPress={() => setModalVisible(false)}>
+              <Text style={{color: '#ff4757', textAlign: 'center', marginTop: 20, fontWeight: 'bold'}}>Cancel</Text>
+            </TouchableOpacity>
           </View>
         </View>
       </Modal>
@@ -121,6 +150,7 @@ const getStyles = (isDark: boolean) => StyleSheet.create({
   modalOverlay: { flex: 1, justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.9)', padding: 20 },
   modalContent: { backgroundColor: isDark ? '#1e272e' : '#fff', padding: 25, borderRadius: 20 },
   modalTitle: { color: isDark ? '#fff' : '#000', fontSize: 18, fontWeight: 'bold', textAlign: 'center', marginBottom: 20 },
+  label: { color: '#888', fontSize: 12, fontWeight: 'bold', marginBottom: 5 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 20 },
   input: { backgroundColor: '#333', color: '#fff', padding: 15, borderRadius: 10, width: 60, textAlign: 'center', fontSize: 18 },
   colon: { color: isDark ? '#fff' : '#000', fontSize: 20, fontWeight: 'bold' },

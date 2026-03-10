@@ -11,5 +11,6 @@ const firebaseConfig = {
 };
 
 const app = initializeApp(firebaseConfig);
-// MUST HAVE THIS LINE TO PREVENT RENDER ERROR
+
+// THIS LINE IS THE KEY: It exports 'db' so your tabs can use it
 export const db = getFirestore(app);
