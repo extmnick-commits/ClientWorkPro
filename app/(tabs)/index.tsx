@@ -21,7 +21,8 @@ export default function HoursScreen() {
   const [monthlyTotal, setMonthlyTotal] = useState(0);
 
   useEffect(() => {
-    const q = query(collection(db, "workLogs"), orderBy("date"));
+    // UPDATED: Changed to 'worklogs' to match your Firebase Console exactly
+    const q = query(collection(db, "worklogs"), orderBy("date"));
     return onSnapshot(q, (snapshot) => {
       let total = 0;
       const logs: any = {};
@@ -32,13 +33,11 @@ export default function HoursScreen() {
       });
       setWorkLogs(logs);
       setMonthlyTotal(total);
-    }, (err) => {
-      console.log("Firebase Load Error:", err.message);
     });
   }, []);
 
   const saveShift = async () => {
-    if (!startH || !endH) return Alert.alert("Error", "Please fill in all hours.");
+    if (!startH || !endH) return Alert.alert("Error", "Please enter hours.");
 
     const to24 = (h: string, m: string, p: string) => {
       let hour = parseInt(h);
@@ -54,29 +53,19 @@ export default function HoursScreen() {
     if (diff < 0) diff += 24;
 
     setIsSaving(true);
-
-    // Timeout logic: If Firebase hangs for 8 seconds, stop the spinner
-    const timer = setTimeout(() => {
-      if (isSaving) {
-        setIsSaving(false);
-        Alert.alert("Connection Timeout", "Firebase is not responding. Check your Rules and Publish them.");
-      }
-    }, 8000);
-
     try {
-      await addDoc(collection(db, "workLogs"), {
+      // UPDATED: Changed to 'worklogs'
+      await addDoc(collection(db, "worklogs"), {
         date: selectedDate,
         hours: parseFloat(diff.toFixed(2)),
         timestamp: new Date()
       });
-      clearTimeout(timer);
       setModalVisible(false);
       setIsSaving(false);
-      Alert.alert("Success! 🎉", `Saved to database.`);
+      Alert.alert("Success! 🎉", `Saved to your worklogs.`);
     } catch (e: any) {
-      clearTimeout(timer);
       setIsSaving(false);
-      Alert.alert("Save Failed", e.message);
+      Alert.alert("Save Failed", "Firebase blocked the save. Check your Rules.");
     }
   };
 
@@ -99,8 +88,6 @@ export default function HoursScreen() {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>{selectedDate}</Text>
-            
-            <Text style={styles.label}>Start Time</Text>
             <View style={styles.row}>
               <TextInput style={styles.input} placeholder="12" value={startH} onChangeText={setStartH} keyboardType="numeric" maxLength={2} />
               <Text style={styles.colon}>:</Text>
@@ -108,8 +95,6 @@ export default function HoursScreen() {
               <TouchableOpacity style={[styles.pBtn, startP === 'AM' && styles.pActive]} onPress={() => setStartP('AM')}><Text style={styles.pText}>AM</Text></TouchableOpacity>
               <TouchableOpacity style={[styles.pBtn, startP === 'PM' && styles.pActive]} onPress={() => setStartP('PM')}><Text style={styles.pText}>PM</Text></TouchableOpacity>
             </View>
-
-            <Text style={styles.label}>End Time</Text>
             <View style={styles.row}>
               <TextInput style={styles.input} placeholder="12" value={endH} onChangeText={setEndH} keyboardType="numeric" maxLength={2} />
               <Text style={styles.colon}>:</Text>
@@ -117,7 +102,6 @@ export default function HoursScreen() {
               <TouchableOpacity style={[styles.pBtn, endP === 'AM' && styles.pActive]} onPress={() => setEndP('AM')}><Text style={styles.pText}>AM</Text></TouchableOpacity>
               <TouchableOpacity style={[styles.pBtn, endP === 'PM' && styles.pActive]} onPress={() => setEndP('PM')}><Text style={styles.pText}>PM</Text></TouchableOpacity>
             </View>
-
             <TouchableOpacity style={styles.saveBtn} onPress={saveShift} disabled={isSaving}>
               {isSaving ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveBtnText}>Save Shift</Text>}
             </TouchableOpacity>
@@ -137,7 +121,6 @@ const getStyles = (isDark: boolean) => StyleSheet.create({
   modalOverlay: { flex: 1, justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.9)', padding: 20 },
   modalContent: { backgroundColor: isDark ? '#1e272e' : '#fff', padding: 25, borderRadius: 20 },
   modalTitle: { color: isDark ? '#fff' : '#000', fontSize: 18, fontWeight: 'bold', textAlign: 'center', marginBottom: 20 },
-  label: { color: '#888', fontSize: 12, fontWeight: 'bold', marginBottom: 5 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 20 },
   input: { backgroundColor: '#333', color: '#fff', padding: 15, borderRadius: 10, width: 60, textAlign: 'center', fontSize: 18 },
   colon: { color: isDark ? '#fff' : '#000', fontSize: 20, fontWeight: 'bold' },
