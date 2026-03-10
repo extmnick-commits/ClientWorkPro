@@ -3,8 +3,6 @@ import { addDoc, collection } from 'firebase/firestore';
 import React, { useState } from 'react';
 import { Alert, KeyboardAvoidingView, Platform, SafeAreaView, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { GooglePlacesAutocomplete } from 'react-native-google-places-autocomplete';
-
-// FIX: This path must go up two levels to find the file in your root folder
 import { db } from '../../firebaseConfig';
 
 const RATE_PER_MILE = 0.67;
@@ -65,18 +63,20 @@ export default function MileageScreen() {
             <View key={stop.id} style={{ backgroundColor: '#1e272e', padding: 15, borderRadius: 10, marginBottom: 15, zIndex: stops.length - index }}>
               <Text style={{ color: '#888', marginBottom: 5 }}>{index === 0 ? "Starting Point" : `Stop ${index}`}</Text>
               
+              {/* Fix: Added explicit height to textInputContainer to ensure visibility */}
               <GooglePlacesAutocomplete
                 placeholder='Search Location...'
                 onPress={(data) => updateStop(stop.id, 'address', data.description)}
                 query={{ 
                   key: GOOGLE_MAPS_API_KEY, 
                   language: 'en',
-                  // Ensures it works with the Restricted Key you set up
                   types: 'geocode' 
                 }}
                 enablePoweredByContainer={false}
                 styles={{ 
-                  textInput: { backgroundColor: '#333', color: '#fff', borderRadius: 8 }, 
+                  container: { flex: 0, width: '100%' },
+                  textInputContainer: { width: '100%' },
+                  textInput: { backgroundColor: '#333', color: '#fff', borderRadius: 8, height: 45 }, 
                   listView: { backgroundColor: '#333', position: 'absolute', top: 45, zIndex: 1000 } 
                 }}
               />
@@ -86,6 +86,7 @@ export default function MileageScreen() {
                   <TextInput 
                     style={{ backgroundColor: '#333', color: '#fff', flex: 1, padding: 10, borderRadius: 8 }} 
                     placeholder="Miles" 
+                    placeholderTextColor="#999"
                     value={stop.miles} 
                     keyboardType="numeric" 
                     onChangeText={v => updateStop(stop.id, 'miles', v)} 
