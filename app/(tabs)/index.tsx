@@ -1,6 +1,6 @@
 import { addDoc, collection, onSnapshot, orderBy, query } from 'firebase/firestore';
 import React, { useEffect, useState } from 'react';
-import { Alert, Modal, SafeAreaView, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Modal, SafeAreaView, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { Calendar } from 'react-native-calendars';
 import { db } from '../../firebaseConfig';
 
@@ -8,8 +8,8 @@ export default function HoursScreen() {
   const [isDark, setIsDark] = useState(true);
   const [selectedDate, setSelectedDate] = useState('');
   const [modalVisible, setModalVisible] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   
-  // States for the new easy-entry system
   const [startH, setStartH] = useState('');
   const [startM, setStartM] = useState('00');
   const [startP, setStartP] = useState('AM');
@@ -32,10 +32,14 @@ export default function HoursScreen() {
       });
       setWorkLogs(logs);
       setMonthlyTotal(total);
+    }, (err) => {
+      console.log("Firebase Load Error:", err.message);
     });
   }, []);
 
   const saveShift = async () => {
+    if (!startH || !endH) return Alert.alert("Error", "Please fill in all hours.");
+
     const to24 = (h: string, m: string, p: string) => {
       let hour = parseInt(h);
       let min = parseInt(m) || 0;
@@ -49,7 +53,15 @@ export default function HoursScreen() {
     let diff = end - start;
     if (diff < 0) diff += 24;
 
-    if (!startH || !endH) return Alert.alert("Error", "Enter hours first!");
+    setIsSaving(true);
+
+    // Timeout logic: If Firebase hangs for 8 seconds, stop the spinner
+    const timer = setTimeout(() => {
+      if (isSaving) {
+        setIsSaving(false);
+        Alert.alert("Connection Timeout", "Firebase is not responding. Check your Rules and Publish them.");
+      }
+    }, 8000);
 
     try {
       await addDoc(collection(db, "workLogs"), {
@@ -57,10 +69,14 @@ export default function HoursScreen() {
         hours: parseFloat(diff.toFixed(2)),
         timestamp: new Date()
       });
+      clearTimeout(timer);
       setModalVisible(false);
-      Alert.alert("Success! 🎉", `Logged ${diff.toFixed(2)} hours.`);
-    } catch (e) {
-      Alert.alert("Firebase Error", "Check connection.");
+      setIsSaving(false);
+      Alert.alert("Success! 🎉", `Saved to database.`);
+    } catch (e: any) {
+      clearTimeout(timer);
+      setIsSaving(false);
+      Alert.alert("Save Failed", e.message);
     }
   };
 
@@ -80,30 +96,34 @@ export default function HoursScreen() {
       <View style={{padding: 20}}><Text style={styles.statBox}>Total: {monthlyTotal.toFixed(1)} / 100 hrs</Text></View>
       
       <Modal visible={modalVisible} animationType="fade" transparent={true}>
-        <View style={styles.modalOverlay}><View style={styles.modalContent}>
-          <Text style={styles.modalTitle}>{selectedDate}</Text>
-          
-          <Text style={styles.label}>Start</Text>
-          <View style={styles.row}>
-            <TextInput style={styles.input} placeholder="12" value={startH} onChangeText={setStartH} keyboardType="numeric" maxLength={2} />
-            <Text style={styles.colon}>:</Text>
-            <TextInput style={styles.input} placeholder="00" value={startM} onChangeText={setStartM} keyboardType="numeric" maxLength={2} />
-            <TouchableOpacity style={[styles.pBtn, startP === 'AM' && styles.pActive]} onPress={() => setStartP('AM')}><Text style={styles.pText}>AM</Text></TouchableOpacity>
-            <TouchableOpacity style={[styles.pBtn, startP === 'PM' && styles.pActive]} onPress={() => setStartP('PM')}><Text style={styles.pText}>PM</Text></TouchableOpacity>
-          </View>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>{selectedDate}</Text>
+            
+            <Text style={styles.label}>Start Time</Text>
+            <View style={styles.row}>
+              <TextInput style={styles.input} placeholder="12" value={startH} onChangeText={setStartH} keyboardType="numeric" maxLength={2} />
+              <Text style={styles.colon}>:</Text>
+              <TextInput style={styles.input} placeholder="00" value={startM} onChangeText={setStartM} keyboardType="numeric" maxLength={2} />
+              <TouchableOpacity style={[styles.pBtn, startP === 'AM' && styles.pActive]} onPress={() => setStartP('AM')}><Text style={styles.pText}>AM</Text></TouchableOpacity>
+              <TouchableOpacity style={[styles.pBtn, startP === 'PM' && styles.pActive]} onPress={() => setStartP('PM')}><Text style={styles.pText}>PM</Text></TouchableOpacity>
+            </View>
 
-          <Text style={styles.label}>End</Text>
-          <View style={styles.row}>
-            <TextInput style={styles.input} placeholder="12" value={endH} onChangeText={setEndH} keyboardType="numeric" maxLength={2} />
-            <Text style={styles.colon}>:</Text>
-            <TextInput style={styles.input} placeholder="00" value={endM} onChangeText={setEndM} keyboardType="numeric" maxLength={2} />
-            <TouchableOpacity style={[styles.pBtn, endP === 'AM' && styles.pActive]} onPress={() => setEndP('AM')}><Text style={styles.pText}>AM</Text></TouchableOpacity>
-            <TouchableOpacity style={[styles.pBtn, endP === 'PM' && styles.pActive]} onPress={() => setEndP('PM')}><Text style={styles.pText}>PM</Text></TouchableOpacity>
-          </View>
+            <Text style={styles.label}>End Time</Text>
+            <View style={styles.row}>
+              <TextInput style={styles.input} placeholder="12" value={endH} onChangeText={setEndH} keyboardType="numeric" maxLength={2} />
+              <Text style={styles.colon}>:</Text>
+              <TextInput style={styles.input} placeholder="00" value={endM} onChangeText={setEndM} keyboardType="numeric" maxLength={2} />
+              <TouchableOpacity style={[styles.pBtn, endP === 'AM' && styles.pActive]} onPress={() => setEndP('AM')}><Text style={styles.pText}>AM</Text></TouchableOpacity>
+              <TouchableOpacity style={[styles.pBtn, endP === 'PM' && styles.pActive]} onPress={() => setEndP('PM')}><Text style={styles.pText}>PM</Text></TouchableOpacity>
+            </View>
 
-          <TouchableOpacity style={styles.saveBtn} onPress={saveShift}><Text style={styles.saveBtnText}>Save Shift</Text></TouchableOpacity>
-          <TouchableOpacity onPress={() => setModalVisible(false)}><Text style={{color: '#ff4757', textAlign: 'center', marginTop: 20}}>Cancel</Text></TouchableOpacity>
-        </View></View>
+            <TouchableOpacity style={styles.saveBtn} onPress={saveShift} disabled={isSaving}>
+              {isSaving ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveBtnText}>Save Shift</Text>}
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => setModalVisible(false)}><Text style={{color: '#ff4757', textAlign: 'center', marginTop: 20}}>Cancel</Text></TouchableOpacity>
+          </View>
+        </View>
       </Modal>
     </SafeAreaView>
   );
@@ -120,7 +140,7 @@ const getStyles = (isDark: boolean) => StyleSheet.create({
   label: { color: '#888', fontSize: 12, fontWeight: 'bold', marginBottom: 5 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 20 },
   input: { backgroundColor: '#333', color: '#fff', padding: 15, borderRadius: 10, width: 60, textAlign: 'center', fontSize: 18 },
-  colon: { color: '#fff', fontSize: 20, fontWeight: 'bold' },
+  colon: { color: isDark ? '#fff' : '#000', fontSize: 20, fontWeight: 'bold' },
   pBtn: { backgroundColor: '#444', padding: 15, borderRadius: 10, width: 60 },
   pActive: { backgroundColor: '#3498db' },
   pText: { color: '#fff', textAlign: 'center', fontWeight: 'bold' },
